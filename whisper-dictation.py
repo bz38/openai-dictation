@@ -5,16 +5,17 @@ import threading
 import pyaudio
 import rumps
 from pynput import keyboard
-import platform
 from openai import OpenAI
 import wave
+
+from pynput.keyboard import Key
+
 
 class SpeechTranscriber:
     def __init__(self):
         self.pykeyboard = keyboard.Controller()
 
     def transcribe(self, audio_data):
-
         result = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_data,
@@ -65,36 +66,19 @@ class Recorder:
             wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
             wf.setframerate(16000)
             wf.writeframes(b''.join(frames))
-        self.transcriber.transcribe(audio_file, language)
+        self.transcriber.transcribe(audio_file)
 
 
 class GlobalKeyListener:
-    def __init__(self, app, key_combination):
+    def __init__(self, app):
         self.app = app
-        self.key1, self.key2 = self.parse_key_combination(key_combination)
-        self.key1_pressed = False
-        self.key2_pressed = False
-
-    def parse_key_combination(self, key_combination):
-        key1_name, key2_name = key_combination.split('+')
-        key1 = getattr(keyboard.Key, key1_name, keyboard.KeyCode(char=key1_name))
-        key2 = getattr(keyboard.Key, key2_name, keyboard.KeyCode(char=key2_name))
-        return key1, key2
 
     def on_key_press(self, key):
-        if key == self.key1:
-            self.key1_pressed = True
-        elif key == self.key2:
-            self.key2_pressed = True
-
-        if self.key1_pressed and self.key2_pressed:
+        if key == Key.f5:
             self.app.toggle()
 
     def on_key_release(self, key):
-        if key == self.key1:
-            self.key1_pressed = False
-        elif key == self.key2:
-            self.key2_pressed = False
+        pass
 
 class DoubleCommandKeyListener:
     def __init__(self, app):
@@ -197,12 +181,6 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Dictation app using the OpenAI whisper ASR model. By default the keyboard shortcut cmd+option '
         'starts and stops dictation')
-    parser.add_argument('-k', '--key_combination', type=str, default='cmd_l+alt' if platform.system() == 'Darwin' else 'ctrl+alt',
-                        help='Specify the key combination to toggle the app. Example: cmd_l+alt for macOS '
-                        'ctrl+alt for other platforms. Default: cmd_r+alt (macOS) or ctrl+alt (others).')
-    parser.add_argument('--k_double_cmd', action='store_true',
-                            help='If set, use double Right Command key press on macOS to toggle the app (double click to begin recording, single click to stop recording). '
-                                 'Ignores the --key_combination argument.')
     parser.add_argument('-l', '--language', type=str, default=None,
                         help='Specify the two-letter language code (e.g., "en" for English) to improve recognition accuracy. '
                         'This can be especially helpful for smaller model sizes.  To see the full list of supported languages, '
@@ -227,10 +205,8 @@ if __name__ == "__main__":
     recorder = Recorder(SpeechTranscriber())
     
     app = StatusBarApp(recorder, args.language, args.max_time)
-    if args.k_double_cmd:
-        key_listener = DoubleCommandKeyListener(app)
-    else:
-        key_listener = GlobalKeyListener(app, args.key_combination)
+    key_listener = GlobalKeyListener(app)
+
     listener = keyboard.Listener(on_press=key_listener.on_key_press, on_release=key_listener.on_key_release)
     listener.start()
 
