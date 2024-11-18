@@ -17,7 +17,8 @@ class SpeechTranscriber:
         result = client.audio.transcriptions.create(
             model="whisper-1",
             file=audio_data,
-            response_format="text"
+            response_format="text",
+            language='en'
         )
         try:
             self.pykeyboard.type(result.rstrip('\n'))
@@ -211,9 +212,8 @@ def parse_args():
                         help='Specify the two-letter language code (e.g., "en" for English) to improve recognition accuracy. '
                         'This can be especially helpful for smaller model sizes.  To see the full list of supported languages, '
                         'check out the official list [here](https://github.com/openai/whisper/blob/main/whisper/tokenizer.py).')
-    parser.add_argument('-t', '--max_time', type=float, default=30,
-                        help='Specify the maximum recording time in seconds. The app will automatically stop recording after this duration. '
-                        'Default: 30 seconds.')
+    parser.add_argument('-t', '--max_time', type=float, default=60,
+                        help='Specify the maximum recording time in seconds. The app will automatically stop recording after this duration. ')
 
     args = parser.parse_args()
 
