@@ -7,9 +7,7 @@ import rumps
 from pynput import keyboard
 from openai import OpenAI
 import wave
-
 from pynput.keyboard import Key
-
 
 class SpeechTranscriber:
     def __init__(self):
@@ -68,6 +66,34 @@ class Recorder:
             wf.writeframes(b''.join(frames))
         self.transcriber.transcribe(audio_file)
 
+
+class GlobalDoubleKeyListener:
+    def __init__(self, app):
+        self.app = app
+        self.key1, self.key2 = self.parse_key_combination('cmd_l+alt')
+        self.key1_pressed = False
+        self.key2_pressed = False
+
+    def parse_key_combination(self, key_combination):
+        key1_name, key2_name = key_combination.split('+')
+        key1 = getattr(keyboard.Key, key1_name, keyboard.KeyCode(char=key1_name))
+        key2 = getattr(keyboard.Key, key2_name, keyboard.KeyCode(char=key2_name))
+        return key1, key2
+
+    def on_key_press(self, key):
+        if key == self.key1:
+            self.key1_pressed = True
+        elif key == self.key2:
+            self.key2_pressed = True
+
+        if self.key1_pressed and self.key2_pressed:
+            self.app.toggle()
+
+    def on_key_release(self, key):
+        if key == self.key1:
+            self.key1_pressed = False
+        elif key == self.key2:
+            self.key2_pressed = False
 
 class GlobalKeyListener:
     def __init__(self, app):
