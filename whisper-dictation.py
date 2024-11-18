@@ -1,31 +1,30 @@
 import argparse
+import io
 import time
 import threading
 import pyaudio
-import numpy as np
 import rumps
 from pynput import keyboard
-from whisper import load_model
 import platform
+from openai import OpenAI
+import wave
 
 class SpeechTranscriber:
-    def __init__(self, model):
-        self.model = model
+    def __init__(self):
         self.pykeyboard = keyboard.Controller()
 
-    def transcribe(self, audio_data, language=None):
-        result = self.model.transcribe(audio_data, language=language)
-        is_first = True
-        for element in result["text"]:
-            if is_first and element == " ":
-                is_first = False
-                continue
+    def transcribe(self, audio_data):
 
-            try:
-                self.pykeyboard.type(element)
-                time.sleep(0.0025)
-            except:
-                pass
+        result = client.audio.transcriptions.create(
+            model="whisper-1",
+            file=audio_data,
+            response_format="text"
+        )
+        try:
+            self.pykeyboard.type(result)
+            time.sleep(0.0025)
+        except:
+            pass
 
 class Recorder:
     def __init__(self, transcriber):
@@ -59,9 +58,14 @@ class Recorder:
         stream.close()
         p.terminate()
 
-        audio_data = np.frombuffer(b''.join(frames), dtype=np.int16)
-        audio_data_fp32 = audio_data.astype(np.float32) / 32768.0
-        self.transcriber.transcribe(audio_data_fp32, language)
+        audio_file = io.BytesIO()
+        audio_file.name = 'recorded_audio.wav'
+        with wave.open(audio_file, 'wb') as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+            wf.setframerate(16000)
+            wf.writeframes(b''.join(frames))
+        self.transcriber.transcribe(audio_file, language)
 
 
 class GlobalKeyListener:
@@ -193,15 +197,6 @@ def parse_args():
     parser = argparse.ArgumentParser(
         description='Dictation app using the OpenAI whisper ASR model. By default the keyboard shortcut cmd+option '
         'starts and stops dictation')
-    parser.add_argument('-m', '--model_name', type=str,
-                        choices=['tiny', 'tiny.en', 'base', 'base.en', 'small', 'small.en', 'medium', 'medium.en', 'large'],
-                        default='base',
-                        help='Specify the whisper ASR model to use. Options: tiny, base, small, medium, or large. '
-                        'To see the  most up to date list of models along with model size, memory footprint, and estimated '
-                        'transcription speed check out this [link](https://github.com/openai/whisper#available-models-and-languages). '
-                        'Note that the models ending in .en are trained only on English speech and will perform better on English '
-                        'language. Note that the small, medium, and large models may be slow to transcribe and are only recommended '
-                        'if you find the base model to be insufficient. Default: base.')
     parser.add_argument('-k', '--key_combination', type=str, default='cmd_l+alt' if platform.system() == 'Darwin' else 'ctrl+alt',
                         help='Specify the key combination to toggle the app. Example: cmd_l+alt for macOS '
                         'ctrl+alt for other platforms. Default: cmd_r+alt (macOS) or ctrl+alt (others).')
@@ -221,22 +216,15 @@ def parse_args():
     if args.language is not None:
         args.language = args.language.split(',')
 
-    if args.model_name.endswith('.en') and args.language is not None and any(lang != 'en' for lang in args.language):
-        raise ValueError('If using a model ending in .en, you cannot specify a language other than English.')
-
     return args
 
 
 if __name__ == "__main__":
     args = parse_args()
 
-    print("Loading model...")
-    model_name = args.model_name
-    model = load_model(model_name)
-    print(f"{model_name} model loaded")
-    
-    transcriber = SpeechTranscriber(model)
-    recorder = Recorder(transcriber)
+    client = OpenAI()
+
+    recorder = Recorder(SpeechTranscriber())
     
     app = StatusBarApp(recorder, args.language, args.max_time)
     if args.k_double_cmd:
