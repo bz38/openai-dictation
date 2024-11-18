@@ -20,7 +20,7 @@ class SpeechTranscriber:
             response_format="text"
         )
         try:
-            self.pykeyboard.type(result)
+            self.pykeyboard.type(result.rstrip('\n'))
             time.sleep(0.0025)
         except:
             pass
